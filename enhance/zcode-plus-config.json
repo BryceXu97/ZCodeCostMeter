@@ -1,0 +1,12 @@
+{
+  "_readme": [
+    "ZCode+ 配置文件(JSON 格式，不支持注释)",
+    "zcodePath：ZCode 桌面版可执行文件/应用包的完整路径；留空 \"\" 表示自动探测。",
+    "Windows 例：\"E:/zcode/ZCode.exe\"（反斜杠须写成双反斜杠）。",
+    "Linux 例：\"/opt/ZCode/zcode\"。",
+    "macOS 例：\"/Applications/ZCode.app\"（也接受 Contents/MacOS/ZCode 内部可执行文件路径）。",
+    "port：调试端口，默认 9333；被占用时自动顺延(9334-9350)。"
+  ],
+  "zcodePath": "",
+  "port": 9333
+}

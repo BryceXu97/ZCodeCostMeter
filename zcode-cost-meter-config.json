@@ -1,0 +1,93 @@
+{
+  "_readme": [
+    "ZCode 会话费用统计配置。价格单位均为每百万 token。",
+    "zcodePath / dbPath 留空 \"\" 表示自动探测，可跨机器复用；",
+    "也支持 ~ 、%USERPROFILE% 、%LOCALAPPDATA% 、$HOME 等写法，",
+    "或用环境变量 ZCODE_COST_METER_ZCODE 指定可执行文件、用 ZCODE_HOME 指定数据目录。",
+    "插件只读 dbPath，不读取 credentials.json 或任何 API Key。",
+    "第三方 Provider 的实际账单可能与同名模型官方价不同，请按渠道账单修改价格。"
+  ],
+  "currency": "CNY",
+  "refreshSeconds": 2,
+  "budget": 0,
+  "includeSubagents": true,
+  "budgetPeriod": "month",
+  "display": {
+    "showSessionCost": true,
+    "showTodayCost": false,
+    "showBalance": true,
+    "showPeakStrip": false,
+    "compactSidebar": false
+  },
+  "balance": {
+    "enabled": true,
+    "refreshMinutes": 15,
+    "showProgressBar": true
+  },
+  "pricingSource": {
+    "kind": "official",
+    "currency": "CNY",
+    "url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+    "version": "2026-09-14-cny-v4.1",
+    "syncedAt": 1789391627554
+  },
+  "peakPricing": {
+    "enabled": true,
+    "timezone": "Asia/Shanghai",
+    "windows": [
+      [
+        9,
+        12
+      ],
+      [
+        14,
+        18
+      ]
+    ],
+    "weekendOffPeak": true,
+    "alertEnabled": true,
+    "alertAheadMinutes": 2,
+    "alertTarget": "both",
+    "alertPosition": "corner",
+    "systemNotification": true
+  },
+  "prices": [
+    {
+      "provider": "*",
+      "model": "deepseek-flash",
+      "label": "deepseek-flash",
+      "input": 1,
+      "cacheRead": 0.02,
+      "cacheWrite": 1,
+      "output": 4,
+      "peakMultiplier": 2,
+      "sourceUrl": ""
+    },
+    {
+      "provider": "*",
+      "model": "deepseek-v4-flash",
+      "label": "deepseek-v4-flash",
+      "input": 1,
+      "cacheRead": 0.02,
+      "cacheWrite": 1,
+      "output": 4,
+      "peakMultiplier": 2,
+      "sourceUrl": ""
+    },
+    {
+      "provider": "*",
+      "model": "deepseek-v4-pro",
+      "label": "deepseek-v4-pro",
+      "input": 4.5,
+      "cacheRead": 0.15,
+      "cacheWrite": 4.5,
+      "output": 13.5,
+      "peakMultiplier": 2,
+      "sourceUrl": ""
+    }
+  ],
+  "_pathHint": "zcodePath / dbPath 留空即自动探测；如需固定，可写绝对路径或含 ~ / %USERPROFILE% 等变量的路径。",
+  "zcodePath": "",
+  "dbPath": "",
+  "port": 9361
+}

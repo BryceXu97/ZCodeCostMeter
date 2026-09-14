@@ -1,0 +1,10 @@
+# 默认统一为 LF；Windows 批处理保持 CRLF，便于直接双击运行
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# launcher.vbs 为 UTF-16LE（Windows 脚本宿主要求），按二进制处理，避免行尾被改写
+*.vbs -text
+
+# enhance/ 为 vendored 第三方代码（ZCode+，MIT），保留其原始 CRLF 行尾
+enhance/** text eol=crlf

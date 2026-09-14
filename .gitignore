@@ -1,0 +1,17 @@
+# 改造前的本地快照，不参与发布
+/old/
+
+# 编辑器/助手生成的本地项目数据，含个人路径与笔记
+.workbuddy/
+
+# 运行时产物
+*.log
+*.lock
+.tmp_*
+.DS_Store
+Thumbs.db
+
+# 依赖与缓存
+node_modules/
+__pycache__/
+*.pyc
