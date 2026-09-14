@@ -1,6 +1,6 @@
 {
   "_readme": [
-    "ZCode+ 配置文件(JSON 格式，不支持注释)",
+    "ZCode 增强版配置文件(JSON 格式，不支持注释)",
     "zcodePath：ZCode 桌面版可执行文件/应用包的完整路径；留空 \"\" 表示自动探测。",
     "Windows 例：\"E:/zcode/ZCode.exe\"（反斜杠须写成双反斜杠）。",
     "Linux 例：\"/opt/ZCode/zcode\"。",

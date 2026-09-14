@@ -1,17 +1,23 @@
 /*
-ZCode+ 提示词增强注入脚本（WorkBuddy 社区移植，非 ZCode / WorkBuddy / Augment 官方产品）
-- 注入星芒按钮（位于输入框左下角模式切换右侧）；点击把当前草稿发给 ZCode+ 控制器
+Vendored from ZCode+ — https://github.com/Llliao1113/zcode-plus
+Copyright (c) 2026 Llliao1113. Licensed under the MIT License (see enhance/LICENSE).
+Locally modified for ZCode Cost Meter; identifiers and user-visible branding were
+neutralised, so this file is NOT byte-identical to upstream.
+Full modification list and provenance: UPSTREAMS.md at the repository root.
+
+ZCode 提示词增强注入脚本（非 ZCode / WorkBuddy / Augment 官方产品）
+- 注入星芒按钮（位于输入框左下角模式切换右侧）；点击把当前草稿发给 ZCode 增强版控制器
 - 控制器调用模型增强后回传，经快照校验回填输入框；支持撤销
 - 右键星芒按钮打开设置面板；凭据不进页面，页面只与本地控制器通信
 Icons adapted from Lucide v1.8.0 (Sparkles, LoaderCircle, Undo2, X), ISC License.
 */
 (() => {
-  // 版本由控制器注入（globalThis.__zcodePlusControllerVersion）；直接在浏览器调试时回退 "dev"。
+  // 版本由控制器注入（globalThis.__zcodeEnhancerControllerVersion）；直接在浏览器调试时回退 "dev"。
   // 该值同时是运行时身份：控制器版本变化后重注入会替换旧运行时
-  const VERSION = globalThis.__zcodePlusControllerVersion || "dev";
-  const RUNTIME_KEY = "__zcodePlusEnhanceRuntime";
-  const OWNER = "zcode-plus-v1";
-  const SETTINGS_KEY = "zcodePlusEnhance.settings.v1";
+  const VERSION = globalThis.__zcodeEnhancerControllerVersion || "dev";
+  const RUNTIME_KEY = "__zcodeEnhanceRuntime";
+  const OWNER = "zcode-enhancer-v1";
+  const SETTINGS_KEY = "zcodeEnhance.settings.v1";
   const BUTTON_ID = `wb-enhance-btn-${OWNER}`;
   const UNDO_ID = `wb-enhance-undo-${OWNER}`;
   const STYLE_ID = `wb-enhance-style-${OWNER}`;
@@ -110,7 +116,7 @@ Icons adapted from Lucide v1.8.0 (Sparkles, LoaderCircle, Undo2, X), ISC License
   }
   function controllerRequest(type, extra = {}, manualOverride) {
     if (typeof window.__wbEnhance !== "function") {
-      return Promise.reject(new Error("ZCode+ 控制器未连接：请从「ZCode+」快捷方式启动"));
+      return Promise.reject(new Error("ZCode 增强版控制器未连接：请从「ZCode 增强版」快捷方式启动"));
     }
     const id = ++requestSeq;
     const s = loadSettings();
@@ -130,7 +136,7 @@ Icons adapted from Lucide v1.8.0 (Sparkles, LoaderCircle, Undo2, X), ISC License
       } catch (error) {
         pendingRequests.delete(id);
         clearTimeout(timer);
-        reject(new Error("无法联系 ZCode+ 控制器：" + String(error?.message || error)));
+        reject(new Error("无法联系 ZCode 增强版控制器：" + String(error?.message || error)));
       }
     });
   }
@@ -684,7 +690,7 @@ Icons adapted from Lucide v1.8.0 (Sparkles, LoaderCircle, Undo2, X), ISC License
     overlay.innerHTML = `
       <div class="wb-panel" role="dialog" aria-modal="true" aria-labelledby="wb-settings-title" tabindex="-1">
         <header class="wb-header">
-          <h3 id="wb-settings-title">ZCode+ 增强设置 <small>${VERSION}</small></h3>
+          <h3 id="wb-settings-title">ZCode 提示词增强设置 <small>${VERSION}</small></h3>
           <button class="wb-icon" data-wb="close" type="button" aria-label="关闭设置" title="关闭设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
         </header>
         <div class="wb-body">

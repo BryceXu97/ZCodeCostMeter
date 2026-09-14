@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 /*
-ZCode+ 提示词增强控制器（社区移植，非 ZCode 官方产品）
-- 分配空闲端口，以 --remote-debugging-port 拉起 ZCode（即 "ZCode+" 模式）
+Vendored from ZCode+ — https://github.com/Llliao1113/zcode-plus
+Copyright (c) 2026 Llliao1113. Licensed under the MIT License (see enhance/LICENSE).
+Locally modified for ZCode Cost Meter; identifiers and user-visible branding were
+neutralised, so this file is NOT byte-identical to upstream.
+Full modification list and provenance: UPSTREAMS.md at the repository root.
+
+ZCode 提示词增强控制器（非 ZCode 官方产品）
+- 分配空闲端口，以 --remote-debugging-port 拉起 ZCode（即 "ZCode 增强版" 模式）
 - 通过 CDP 向所有页面注入增强按钮脚本（页面刷新/新建窗口自动重注入）
 - 页面经 Runtime binding 发来草稿，本进程调用 OpenAI 兼容 / Anthropic 协议模型增强后回传
 - 凭据只存在于本进程内存：不写盘、不进日志、不回传页面
@@ -15,12 +21,12 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 const INSTALL_DIR = path.dirname(fileURLToPath(import.meta.url));
-const LOG_FILE = path.join(INSTALL_DIR, "zcode-plus.log");
+const LOG_FILE = path.join(INSTALL_DIR, "enhancer.log");
 // 版本单一来源：--version 输出与页面设置面板显示都取这里（build-exe.mjs 也从此解析）
 const CONTROLLER_VERSION = "1.3.2";
 const ZCODE_HOME = process.env.ZCODE_HOME || path.join(os.homedir(), ".zcode");
-const CONFIG_FILE = path.join(INSTALL_DIR, "zcode-plus-config.json");
-const LOCK_FILE = path.join(INSTALL_DIR, ".zcode-plus.lock");
+const CONFIG_FILE = path.join(INSTALL_DIR, "enhancer-config.json");
+const LOCK_FILE = path.join(INSTALL_DIR, ".enhancer.lock");
 const REQUEST_TIMEOUT_MS = 90000;
 const CDP_BOOT_TIMEOUT_MS = 30000;
 const PORT_RANGE = [9333, 9350];
@@ -38,7 +44,7 @@ function ensureDefaultConfig() {
   if (fs.existsSync(CONFIG_FILE)) return;
   const config = {
     _readme: [
-      "ZCode+ 配置文件(JSON 格式，不支持注释)",
+      "ZCode 增强版配置文件(JSON 格式，不支持注释)",
       "zcodePath：ZCode 桌面版可执行文件/应用包的完整路径；留空 \"\" 表示自动探测。",
       "Windows 例：\"E:/zcode/ZCode.exe\"（反斜杠须写成双反斜杠）。",
       "Linux 例：\"/opt/ZCode/zcode\"。",
@@ -57,7 +63,7 @@ ensureDefaultConfig();
 
 // 显式配置的 ZCode 路径：实时读取（弹窗引导编辑配置后无需重启进程即可重试生效）
 function configuredZcodePath() {
-  return String(process.env.ZCODE_PLUS_ZCODE_PATH || readJson(CONFIG_FILE)?.zcodePath || "").trim() || null;
+  return String(process.env.ZCODE_ENHANCER_ZCODE_PATH || readJson(CONFIG_FILE)?.zcodePath || "").trim() || null;
 }
 function listDriveRoots() {
   const roots = [];
@@ -113,10 +119,10 @@ function findZcodePath() {
 }
 // Windows 候选链
 function addZcodeCandidatesWin(add) {
-  // 2) ZCode+ 所在目录及逐级向上：覆盖「把 ZCode+ 放进 ZCode 安装目录或其子目录」
+  // 2) ZCode 增强版所在目录及逐级向上：覆盖「把 ZCode 增强版放进 ZCode 安装目录或其子目录」
   let cur = INSTALL_DIR;
   for (let depth = 0; depth < 6 && cur; depth++) {
-    add(path.join(cur, "ZCode.exe"), "ZCode+ 所在位置");
+    add(path.join(cur, "ZCode.exe"), "ZCode 增强版所在位置");
     const parent = path.dirname(cur);
     if (parent === cur) break;
     cur = parent;
@@ -137,10 +143,10 @@ function addZcodeCandidatesWin(add) {
 }
 // macOS 候选链（PR#2 真机实测；.app 包路径由 findZcodePath 统一经 resolveZcodeExecutable 解析）
 function addZcodeCandidatesMac(add) {
-  // 2) ZCode+ 所在目录及逐级向上：内部可执行文件可直接判定存在
+  // 2) ZCode 增强版所在目录及逐级向上：内部可执行文件可直接判定存在
   let cur = INSTALL_DIR;
   for (let depth = 0; depth < 6 && cur; depth++) {
-    add(path.join(cur, "ZCode.app", "Contents", "MacOS", "ZCode"), "ZCode+ 所在位置");
+    add(path.join(cur, "ZCode.app", "Contents", "MacOS", "ZCode"), "ZCode 增强版所在位置");
     const parent = path.dirname(cur);
     if (parent === cur) break;
     cur = parent;
@@ -172,7 +178,7 @@ function addZcodeCandidatesLinux(add) {
   add(path.join(os.homedir(), ".local", "bin", "zcode"), "标准安装位置");
 }
 function portPreferred() {
-  return Number(process.env.ZCODE_PLUS_PORT) || readJson(CONFIG_FILE)?.port || PORT_RANGE[0];
+  return Number(process.env.ZCODE_ENHANCER_PORT) || readJson(CONFIG_FILE)?.port || PORT_RANGE[0];
 }
 
 function readJson(file) {
@@ -306,7 +312,7 @@ function renderPrompt(draft, enhanceMode, customTemplate) {
 
 // ---- 端口与进程管理 ----
 // 单实例锁：同一安装目录只允许一个控制器常驻。重复点击入口时若控制器还活着，
-// 聚焦已运行的 ZCode+ 后退出——否则两条 CDP 通道同时收 binding 会双重增强/双重回填。
+// 聚焦已运行的 ZCode 增强版后退出——否则两条 CDP 通道同时收 binding 会双重增强/双重回填。
 // 返回值：null=已持锁可继续；数字=持锁的存活 pid（调用方应退出）
 function acquireSingleInstanceLock() {
   try {
@@ -328,7 +334,7 @@ function acquireSingleInstanceLock() {
   for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => process.exit(0));
   return null;
 }
-// macOS：把已运行的 ZCode+ 窗口带到前台（新入口点击用户预期是「打开窗口」）
+// macOS：把已运行的 ZCode 增强版窗口带到前台（新入口点击用户预期是「打开窗口」）
 function activateZcodeApp() {
   if (!IS_MAC) return;
   try { execFileSync("osascript", ["-e", 'tell application "ZCode" to activate'], { timeout: 5000, stdio: "ignore" }); } catch {}
@@ -345,7 +351,7 @@ async function findFreePort(preferred) {
   for (let p = Math.max(PORT_RANGE[0], preferred); p <= PORT_RANGE[1]; p++) {
     if (!(await portInUse(p))) return p;
   }
-  throw new Error(`端口 ${PORT_RANGE[0]}-${PORT_RANGE[1]} 全部被占用，无法启动 ZCode+`);
+  throw new Error(`端口 ${PORT_RANGE[0]}-${PORT_RANGE[1]} 全部被占用，无法启动 ZCode 增强版`);
 }
 async function cdpVersion(port, timeoutMs = 3000) {
   try {
@@ -364,7 +370,7 @@ function cdpSamePlatform(version) {
   return IS_WIN ? /Windows NT/i.test(ua) : IS_MAC ? /Macintosh/i.test(ua) : /Linux/i.test(ua);
 }
 async function findRunningZcodePlus() {
-  // 已带调试端口的 ZCode+ 实例：直接附着，不重复拉起。
+  // 已带调试端口的 ZCode 增强版实例：直接附着，不重复拉起。
   // 必须校验目标确为 ZCode（页面标题/URL 含 zcode）且与本控制器同平台，
   // 避免误连本机其他应用的 CDP 端口或跨系统边界的另一侧实例
   for (let p = PORT_RANGE[0]; p <= PORT_RANGE[1]; p++) {
@@ -445,7 +451,7 @@ async function killZcodeProcesses() {
 // Windows 弹窗文本走 base64（UTF-16LE）：规避中文/换行/引号在 cmd→PowerShell 间的多层转义
 function showMessageBoxWin(text, buttons = "OK") {
   const b64 = Buffer.from(text, "utf16le").toString("base64");
-  const cmd = `powershell -NoProfile -Command "$t=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('${b64}')); Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($t,'ZCode+','${buttons}','Warning')"`;
+  const cmd = `powershell -NoProfile -Command "$t=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('${b64}')); Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($t,'ZCode 增强版','${buttons}','Warning')"`;
   try { return execSync(cmd, { encoding: "utf8", timeout: 120000 }).trim(); }
   catch { return ""; }
 }
@@ -458,7 +464,7 @@ function showMessageBoxMac(text, buttons = "OK") {
     .map((line) => '"' + line.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"')
     .join(" & linefeed & ");
   const btns = yesNo ? '"否", "是"' : '"好"';
-  const script = `display dialog ${literal} with title "ZCode+" `
+  const script = `display dialog ${literal} with title "ZCode 增强版" `
     + `buttons [${btns}] default button ${yesNo ? '"是"' : '"好"'} with icon caution`;
   try { return execFileSync("osascript", ["-e", script], { encoding: "utf8", timeout: 120000 }).trim(); }
   catch { return ""; } // 用户按 Esc 取消 / 超时
@@ -477,27 +483,27 @@ function showMessageBoxLinux(text, buttons = "OK") {
     catch (error) { return error?.status ?? 1; }
   };
   if (has("zenity")) {
-    const exit = run(`zenity --title 'ZCode+' ${isQuestion ? "--question" : "--info --timeout 60"} --text ${shQuote(text)} --width 480`);
+    const exit = run(`zenity --title 'ZCode 增强版' ${isQuestion ? "--question" : "--info --timeout 60"} --text ${shQuote(text)} --width 480`);
     if (isQuestion) return exit === 0 ? "Yes" : "No";
     return "OK";
   }
   if (has("kdialog")) {
-    const exit = run(`kdialog ${isQuestion ? "--yesno" : "--msgbox"} ${shQuote(text)} --title 'ZCode+'`);
+    const exit = run(`kdialog ${isQuestion ? "--yesno" : "--msgbox"} ${shQuote(text)} --title 'ZCode 增强版'`);
     if (isQuestion) return exit === 0 ? "Yes" : "No";
     return "OK";
   }
   // 终端兜底：有 TTY 时控制台问答（默认 n，安全侧）；headless（桌面双击/后台）走 stderr 提示并返回空串
   if (process.stdin.isTTY && process.stdout.isTTY) {
-    process.stdout.write(`\n[ZCode+] ${text}\n`);
+    process.stdout.write(`\n[ZCode 增强版] ${text}\n`);
     if (!isQuestion) return "OK";
-    process.stdout.write("[ZCode+] (y/n，默认 n) ");
+    process.stdout.write("[ZCode 增强版] (y/n，默认 n) ");
     const buf = Buffer.alloc(16);
     try {
       const n = fs.readSync(0, buf, 0, 16);
       return /^y/i.test(buf.toString("utf8", 0, n).trim()) ? "Yes" : "No";
     } catch { return ""; }
   }
-  process.stderr.write(`[ZCode+] ${text}\n`);
+  process.stderr.write(`[ZCode 增强版] ${text}\n`);
   return "";
 }
 const showMessageBox = IS_WIN ? showMessageBoxWin : IS_MAC ? showMessageBoxMac : showMessageBoxLinux;
@@ -508,7 +514,7 @@ function messageBoxConfirmed(result) {
 async function askCloseOriginal() {
   // 询问是否关闭正在运行的原版 ZCode（用户可能丢未发送草稿，必须显式确认）
   return messageBoxConfirmed(showMessageBox(
-    "ZCode 原版正在运行，ZCode+ 需要独占启动。是否关闭原版并以 ZCode+ 重启？",
+    "ZCode 原版正在运行，ZCode 增强版需要独占启动。是否关闭原版并以 ZCode 增强版重启？",
     "YesNo",
   ));
 }
@@ -827,7 +833,7 @@ async function callLLM(cfg, draft, enhanceMode, customTemplate, thinking) {
     // 反自动化网关（如 ZCode 内置订阅端点 3007 captcha）：设计上仅允许 ZCode 客户端自身调用，
     // 第三方直连必被拒——这不是配置错误，给出可执行的指引而不是裸状态码
     if (data?.code === 3007 || /captcha/i.test(String(data?.msg || ""))) {
-      throw new Error(`该服务网关带反自动化验证（${detail || `HTTP ${res.status}`}），拒绝 ZCode+ 直连。请右键 ✨ 按钮打开设置，取消「跟随 ZCode 当前模型」，改用手动模式（可直连的 Base URL + API Key）后重试`);
+      throw new Error(`该服务网关带反自动化验证（${detail || `HTTP ${res.status}`}），拒绝 ZCode 增强版直连。请右键 ✨ 按钮打开设置，取消「跟随 ZCode 当前模型」，改用手动模式（可直连的 Base URL + API Key）后重试`);
     }
     throw new Error(`HTTP ${res.status}${detail ? "; " + detail : ""}${res.status >= 500 ? "（网关瞬时故障，已重试）" : ""}`);
   }
@@ -955,7 +961,7 @@ let INJECT_SOURCE = "";
 try { INJECT_SOURCE = fs.readFileSync(path.join(INSTALL_DIR, "inject.js"), "utf8"); }
 catch (error) { log("无法读取 inject.js:", safeError(error)); process.exit(1); }
 // 注入前把控制器版本带进页面：设置面板显示的版本以此为准，避免 inject.js 内硬编码漏同步
-INJECT_SOURCE = `globalThis.__zcodePlusControllerVersion = ${JSON.stringify(CONTROLLER_VERSION)};\n` + INJECT_SOURCE;
+INJECT_SOURCE = `globalThis.__zcodeEnhancerControllerVersion = ${JSON.stringify(CONTROLLER_VERSION)};\n` + INJECT_SOURCE;
 
 // ---- 页面请求分发 ----
 async function handleBinding(cdp, sessionId, payload) {
@@ -1036,16 +1042,16 @@ async function handleBinding(cdp, sessionId, payload) {
   }
 }
 
-// exe（SEA）模式首次运行自动创建桌面入口；node 模式由 install.mjs 创建（Windows 快捷方式 / macOS ZCode+.app）
+// exe（SEA）模式首次运行自动创建桌面入口；node 模式由 install.mjs 创建（Windows 快捷方式 / macOS ZCode Enhancer.app）
 function ensureDesktopShortcut() {
-  if (IS_MAC) return; // mac 的桌面入口是 install.mjs 生成的 ZCode+.app，控制器运行时无需再建
+  if (IS_MAC) return; // mac 的桌面入口是 install.mjs 生成的 ZCode Enhancer.app，控制器运行时无需再建
   let isSea = false;
   try { isSea = require("node:sea").isSea(); } catch {}
   if (!isSea) return;
   const exe = process.execPath;
   const icon = path.join(INSTALL_DIR, "ZCodePlus.ico");
   if (IS_WIN) {
-    const lnk = path.join(os.homedir(), "Desktop", "ZCode+.lnk");
+    const lnk = path.join(os.homedir(), "Desktop", "ZCode Enhancer.lnk");
     try {
       if (fs.existsSync(lnk)) return;
       const ps = [
@@ -1053,26 +1059,26 @@ function ensureDesktopShortcut() {
         `$l = $ws.CreateShortcut('${lnk.replace(/'/g, "''")}')`,
         `$l.TargetPath = '${exe.replace(/'/g, "''")}'`,
         `${fs.existsSync(icon) ? `$l.IconLocation = '${icon.replace(/'/g, "''")}',0` : ""}`,
-        `$l.Description = 'ZCode+ Prompt Enhance'`,
+        `$l.Description = 'ZCode Prompt Enhancer'`,
         `$l.Save()`,
       ].filter(Boolean).join("; ");
       execSync(`powershell -NoProfile -Command "${ps.replace(/"/g, '`"')}"`, { timeout: 30000 });
-      log("已创建桌面快捷方式 ZCode+");
+      log("已创建桌面快捷方式 ZCode 增强版");
     } catch (error) {
       log("创建桌面快捷方式失败（不影响使用）:", safeError(error));
     }
     return;
   }
   // Linux：.desktop 文件写入用户目录（WSLg 会自动集成进 Windows 开始菜单）。
-  // 控制台窗口下用 vte 唤起：detach 控制器与终端，ZCode+ 独立成窗
-  const desktopFile = path.join(os.homedir(), ".local", "share", "applications", "zcode-plus.desktop");
+  // 控制台窗口下用 vte 唤起：detach 控制器与终端，ZCode 增强版独立成窗
+  const desktopFile = path.join(os.homedir(), ".local", "share", "applications", "zcode-enhancer.desktop");
   try {
     if (fs.existsSync(desktopFile)) return;
     const entry = [
       "[Desktop Entry]",
       "Type=Application",
-      "Name=ZCode+",
-      "Comment=ZCode+ 提示词增强（CDP 注入版）",
+      "Name=ZCode 增强版",
+      "Comment=ZCode 提示词增强（CDP 注入版）",
       `Exec=${JSON.stringify(exe)} ${JSON.stringify(path.join(INSTALL_DIR, "controller.mjs"))}`,
       "Terminal=false",
       "Categories=Development;",
@@ -1087,10 +1093,10 @@ function ensureDesktopShortcut() {
 
 // ---- 主流程 ----
 async function main() {
-  // 0) 单实例：控制器已在跑 → 聚焦 ZCode+ 窗口后退出（不重复建 CDP 通道）
+  // 0) 单实例：控制器已在跑 → 聚焦 ZCode 增强版窗口后退出（不重复建 CDP 通道）
   const lockOwner = acquireSingleInstanceLock();
   if (lockOwner !== null) {
-    log(`已有 ZCode+ 控制器在运行 (pid=${lockOwner})，激活窗口后本次启动退出`);
+    log(`已有 ZCode 增强版控制器在运行 (pid=${lockOwner})，激活窗口后本次启动退出`);
     activateZcodeApp();
     process.exit(0);
   }
@@ -1101,10 +1107,10 @@ async function main() {
     const guide = found.error
       ? found.error
       : IS_WIN
-        ? "自动探测未找到 ZCode.exe（已尝试 ZCode+ 所在位置、各盘符常见目录、标准安装位置、PATH）。"
+        ? "自动探测未找到 ZCode.exe（已尝试 ZCode 增强版所在位置、各盘符常见目录、标准安装位置、PATH）。"
         : IS_MAC
-          ? "自动探测未找到 ZCode.app（已尝试 ZCode+ 所在位置、标准安装位置、Spotlight）。"
-          : "自动探测未找到 zcode 可执行文件（已尝试 ZCode+ 所在位置、PATH、标准安装位置）。";
+          ? "自动探测未找到 ZCode.app（已尝试 ZCode 增强版所在位置、标准安装位置、Spotlight）。"
+          : "自动探测未找到 zcode 可执行文件（已尝试 ZCode 增强版所在位置、PATH、标准安装位置）。";
     const example = IS_WIN
       ? `示例（推荐正斜杠，反斜杠需写成双反斜杠）：\n"zcodePath": "E:/zcode/ZCode.exe"`
       : IS_MAC
@@ -1112,7 +1118,7 @@ async function main() {
         : `示例：\n"zcodePath": "/opt/ZCode/zcode"`;
     const choice = showMessageBox(
       guide + `\n\n请在配置文件中手动填写 zcodePath：\n${CONFIG_FILE}\n\n${example}\n\n`
-        + `是否现在打开配置文件编辑？（保存后 ZCode+ 自动重试）`,
+        + `是否现在打开配置文件编辑？（保存后 ZCode 增强版自动重试）`,
       "YesNo",
     );
     if (messageBoxConfirmed(choice)) {
@@ -1153,12 +1159,12 @@ async function main() {
     );
     process.exit(1);
   }
-  log(`ZCode+ 控制器启动 (zcode=${found.path}, 来源=${found.source})`);
+  log(`ZCode 增强版控制器启动 (zcode=${found.path}, 来源=${found.source})`);
   ensureDesktopShortcut();
-  // 1) 已有 ZCode+ 在跑 → 直接附着（幂等注入）
+  // 1) 已有 ZCode 增强版在跑 → 直接附着（幂等注入）
   const running = await findRunningZcodePlus();
   if (running) {
-    log(`检测到已运行的 ZCode+ (port=${running.port})，直接附着`);
+    log(`检测到已运行的 ZCode 增强版(port=${running.port})，直接附着`);
     await serveCdp(running.version.webSocketDebuggerUrl);
     return;
   }
@@ -1172,9 +1178,9 @@ async function main() {
     await killZcodeProcesses();
     await new Promise((r) => setTimeout(r, 2500));
   }
-  // 3) 分配端口（bind 校验，杜绝冲突）并拉起 ZCode+
+  // 3) 分配端口（bind 校验，杜绝冲突）并拉起 ZCode 增强版
   const port = await findFreePort(portPreferred());
-  log(`使用调试端口 ${port}，拉起 ZCode+`);
+  log(`使用调试端口 ${port}，拉起 ZCode 增强版`);
   launchZcode(port, found.path);
   const version = await waitForCdp(port, CDP_BOOT_TIMEOUT_MS);
   if (!version) {
@@ -1236,7 +1242,7 @@ function runInstaller() {
   console.log("安装模式：本目录文件已就绪（exe 分发形态无需额外部署）");
 }
 if (process.argv.includes("--version")) {
-  console.log(`ZCode+ controller ${CONTROLLER_VERSION}`);
+  console.log(`ZCode 增强版controller ${CONTROLLER_VERSION}`);
   process.exit(0);
 }
 if (process.argv.includes("--install")) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Starts the upstream ZCode+ controller, then attaches the cost sidebar to the
+// Starts the vendored prompt-enhancer controller, then attaches the cost sidebar to the
 // same Electron CDP instance through a short-lived loopback bridge.
 import { spawn } from "node:child_process";
 import { createServer, connect } from "node:net";
@@ -59,15 +59,15 @@ function startBridge(listenPort, targetPort) {
 }
 
 async function main() {
-  log("启动 ZCode+ 提示词增强控制器");
+  log("启动提示词增强控制器");
   const enhance = spawn(NODE, [path.join(ROOT, "enhance", "controller.mjs")], {
     cwd: path.join(ROOT, "enhance"), detached: true, stdio: "ignore", windowsHide: true
   });
   enhance.unref();
 
   const sourcePort = await waitForZCodeCdp();
-  if (!sourcePort) throw new Error("等待 ZCode+ CDP 就绪超时");
-  log(`ZCode+ CDP 已就绪 port=${sourcePort}`);
+  if (!sourcePort) throw new Error("等待提示词增强器 CDP 就绪超时");
+  log(`提示词增强器 CDP 已就绪 port=${sourcePort}`);
 
   let bridge = null;
   let bridgePort = null;

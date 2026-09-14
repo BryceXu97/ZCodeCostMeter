@@ -6,5 +6,6 @@
 # launcher.vbs 为 UTF-16LE（Windows 脚本宿主要求），按二进制处理，避免行尾被改写
 *.vbs -text
 
-# enhance/ 为 vendored 第三方代码（ZCode+，MIT），保留其原始 CRLF 行尾
+# enhance/ 为 vendored 第三方代码（源自 ZCode+，MIT，本地已做标识中性化改造）
+# 保留其原始 CRLF 行尾；来源与改动清单见 UPSTREAMS.md
 enhance/** text eol=crlf
